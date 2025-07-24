@@ -1,103 +1,239 @@
-import Image from "next/image";
+"use client";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 
-export default function Home() {
+type DecodedToken = {
+  userId: string;
+  phone: string;
+  exp: number;
+};
+
+function Page() {
+  const [data, setdata] = useState([]);
+  const [fileContent, setFileContent] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [phone, setPhone] = useState<string | null>(null);
+
+  const handleMasFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        setFileContent(json);
+
+        // Send JSON to backend
+        const response = await axios.post("/api/", json);
+        console.log("Uploaded successfully:", response.data);
+      } catch (err) {
+        console.error("Invalid JSON file:", err);
+      }
+    };
+    reader.readAsText(file);
+  };
+  const handleLgrFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        setFileContent(json);
+
+        // Send JSON to backend
+        const response = await axios.post("/api/company", json);
+        console.log("Uploaded successfully:", response.data);
+      } catch (err) {
+        console.error("Invalid JSON file:", err);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const filteredData = data.filter((item: any) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      item.CODE?.toString().toLowerCase().includes(query) ||
+      item.ACCOUNT_N?.toLowerCase().includes(query) ||
+      item.CITY?.toLowerCase().includes(query) ||
+      item.AMOUNT?.toString().toLowerCase().includes(query)
+    );
+  });
+
+  // const fetchdata = async () => {
+  //   try {
+  //     const response = await axios.post("/api/");
+  //     console.log(response);
+  //     getdata();
+  //   } catch (error: any) {
+  //     console.log(error, "error in fetching the data in the frontend");
+  //   }
+  // };
+
+  const getMasdata = async () => {
+    try {
+      const response = await axios.get("/api/", { withCredentials: true });
+      console.log(response);
+      setdata(response.data);
+    } catch (error: any) {
+      console.log(error,"error in fetching the mas data");
+    }
+  };
+  const router = useRouter();
+
+  const fetchinside = async (e: Number) => {
+    try {
+      const code = e;
+      // const response = await axios.get(`/company/${code}`)
+      router.push(`/company/${code}`);
+    } catch (error: any) {
+      console.log(error, "error in fetching the insider info from frontend");
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Call backend cleanup route to delete user data
+    // Call backend cleanup route to delete user data, with credentials
+    await axios.post("/api/auth/cleanup", {}, { withCredentials: true });
+      await axios.get("/api/auth/logout", { withCredentials: true });
+      setdata([]); // Clear frontend state
+      router.push("/auth/login");
+    } catch (error: any) {
+      console.log(error,"error in logout");
+    }
+  };
+
+  useEffect(() => {
+    // Get phone from token in cookies
+    const token = Cookies.get("token");
+    if (token) {
+      try {
+        const decoded: DecodedToken = jwtDecode(token);
+        setPhone(decoded.phone ?? null);
+      } catch (err) {
+        console.error("Invalid token");
+        setPhone(null);
+      }
+    }
+  
+    getMasdata();
+  }, []);
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div>
+      <div className="flex justify-between items-center">  
+      <h1 className="border-b-2 flex justify-center items-center text-4xl">
+        {phone && <span className="ml-4 text-lg text-gray-400">{phone}</span>}
+      </h1>
+      {/* logout button */}
+      <div>
+        <button className="p-2 m-2 bg-red-900 text-white rounded-2xl" onClick={logout}>
+        Log out
+      </button>
+      </div>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {data.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-96">
+           {/* mas data input */}
+          <h2>Upload MAS JSON File</h2>
+            <div className="m-2 flex gap-4">
+              <input
+                className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+                type="file"
+                accept=".json"
+                onChange={handleMasFileChange}
+              />
+              <button
+                className="border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600"
+                onClick={getMasdata}
+              >
+                Show the mas data
+              </button>
+            </div>
+              {/* lgr data input */}
+          <div>
+            <h2 className="ml-2">Upload LGR JSON File here </h2>
+            <div className="m-2 flex gap-4">
+              <input
+                className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+                type="file"
+                accept=".json"
+                onChange={handleLgrFileChange}
+              />
+            </div>
+          </div>
+          
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      ) : (
+        <>
+
+      {/* search input */}
+      <div>
+        <input
+          type="text"
+          placeholder="Search by any field..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+        />
+      </div>
+
+          {/* masdata for display */}
+          <div className="flex-wrap w-full m-2">
+            <div className="border p-2 my-2 bg-gray-800 rounded  h-1/5">
+              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                      CODE
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                      Account Name
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                      Amount
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                      City
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.map((item: any) => (
+                    <tr
+                      onClick={() => fetchinside(item.CODE)}
+                      key={item.CODE}
+                      className="hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
+                        {item.CODE}
+                      </td>
+                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
+                        {item.ACCOUNT_N}
+                      </td>
+                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
+                        {item.AMOUNT}
+                      </td>
+                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
+                        {item.CITY}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
+export default Page;
