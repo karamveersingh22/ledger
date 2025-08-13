@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
+
 type DecodedToken = {
   userId: string;
   phone: string;
@@ -12,6 +13,7 @@ type DecodedToken = {
 };
 
 function Page() {
+
   const [data, setdata] = useState([]);
   const [fileContent, setFileContent] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,31 +113,25 @@ function Page() {
   };
 
   useEffect(() => {
-    // Get phone from token in cookies
-    const token = Cookies.get("token");
-    if (token) {
-      try {
-        const decoded: DecodedToken = jwtDecode(token);
-        setPhone(decoded.phone ?? null);
-      } catch (err) {
-        console.error("Invalid token");
-        setPhone(null);
-      }
-    }
+ 
   
     getMasdata();
   }, []);
   return (
     <div>
+      
+    
+
+
       <div className="flex justify-between items-center">  
       <h1 className="border-b-2 flex justify-center items-center text-4xl">
         {phone && <span className="ml-4 text-lg text-gray-400">{phone}</span>}
       </h1>
       {/* logout button */}
       <div>
-        <button className="p-2 m-2 bg-red-900 text-white rounded-2xl" onClick={logout}>
+        {/* <button className="p-2 m-2 bg-red-900 text-white rounded-2xl" onClick={logout}>
         Log out
-      </button>
+      </button> */}
       </div>
       </div>
 
@@ -233,7 +229,7 @@ function Page() {
         </>
       )}
     </div>
-  );
+  );         
 }
 
 export default Page;
