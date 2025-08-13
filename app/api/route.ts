@@ -25,13 +25,14 @@ export const POST = async (request: NextRequest) => {
   try {
     // verifying the user through token from cookies
     const token = (await cookies()).get("token")?.value;
-    const userData = token && (verifyToken(token) as { id: string });
-    if (!userData) {
+    const result = token ? verifyToken(token) : { success: false };
+    if (!result.success || !result.decoded) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+    const userData = result.decoded;
 
     // 🔥 Delete existing data
-    await mas.deleteMany({ User: userData.id }); // delete previous data of this user
+  await mas.deleteMany({ user: userData.id }); // delete previous data of this user
 
     const data = await request.json();
     // ✅ Insert fresh data
@@ -66,10 +67,11 @@ export const GET = async (request: NextRequest) => {
 
     // fetching from the cookies
     const token = (await cookies()).get("token")?.value;
-    if (!token) {
+    const result = token ? verifyToken(token) : { success: false };
+    if (!result.success || !result.decoded) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const userData = verifyToken(token) as { id: string };
+    const userData = result.decoded;
 
     // ✅ Get only this user's records
     const userRecords = await mas.find({ user: userData.id });

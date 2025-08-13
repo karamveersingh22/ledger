@@ -3,9 +3,8 @@ import jwt from 'jsonwebtoken';
 
 // Define the interface for decoded token
 export interface DecodedToken {
-  id: string;
-  email?: string;
-  role?: string;
+  username: string;
+  role: string;
   iat?: number;
   exp?: number;
   [key: string]: any;
@@ -25,21 +24,18 @@ export interface VerifyTokenResult {
  */
 export function verifyToken(token: string): VerifyTokenResult {
   try {
-    // Make sure you have JWT_SECRET in your environment variables
+    // Use the same secret as in login API
     const jwtSecret = process.env.secret!;
-    
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not defined in environment variables');
+      throw new Error('JWT secret is not defined in environment variables');
     }
-
     // Verify the token
     const decoded = jwt.verify(token, jwtSecret) as DecodedToken;
-    
-    return {
-      success: true,
-      decoded
-    };
-    
+    // Ensure decoded contains username and role
+    if (!decoded || !decoded.username || !decoded.role) {
+      return { success: false, error: 'Invalid token payload' };
+    }
+    return { success: true, decoded };
   } catch (error: any) {
     return {
       success: false,
