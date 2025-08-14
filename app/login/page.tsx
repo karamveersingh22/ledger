@@ -15,13 +15,14 @@ export default function LoginPage() {
     setError("");
     try {
       const res = await axios.post("/api/login", { username, password, role });
-    //   console.log(res.data);
+      console.log(res.data);
+      // Wait for cookie to be set before redirecting
       if (res.data.role === "admin") {
-        router.push("/admin");
-        // window.location.reload();
+        setTimeout(() => {
+          router.replace("/admin");
+        }, 300); // 300ms delay for cookie propagation
       } else if (res.data.role === "client") {
-        router.push("/client");
-        // window.location.reload();
+        router.replace("/");
       }
     } catch (err: any) {
       setError(err.response?.data?.error || "Login failed");

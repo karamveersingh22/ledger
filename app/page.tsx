@@ -5,7 +5,6 @@ import React, { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
-
 type DecodedToken = {
   userId: string;
   phone: string;
@@ -13,11 +12,10 @@ type DecodedToken = {
 };
 
 function Page() {
-
   const [data, setdata] = useState([]);
   const [fileContent, setFileContent] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [phone, setPhone] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   const handleMasFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,102 +82,92 @@ function Page() {
       console.log(response);
       setdata(response.data);
     } catch (error: any) {
-      console.log(error,"error in fetching the mas data");
+      console.log(error, "error in fetching the mas data");
     }
   };
   const router = useRouter();
 
-  const fetchinside = async (e: Number) => {
-    try {
-      const code = e;
-      // const response = await axios.get(`/company/${code}`)
-      router.push(`/company/${code}`);
-    } catch (error: any) {
-      console.log(error, "error in fetching the insider info from frontend");
-    }
+  const fetchinside = (code: number | string) => {
+    router.push(`/company/${code}`);
   };
 
   const logout = async () => {
-    try {
-      // Call backend cleanup route to delete user data
-    // Call backend cleanup route to delete user data, with credentials
-    await axios.post("/api/auth/cleanup", {}, { withCredentials: true });
-      await axios.get("/api/auth/logout", { withCredentials: true });
-      setdata([]); // Clear frontend state
-      router.push("/auth/login");
-    } catch (error: any) {
-      console.log(error,"error in logout");
-    }
+    await fetch("/api/logout", { method: "POST" });
+    setdata([]);
+    router.push("/login");
   };
 
   useEffect(() => {
- 
-  
     getMasdata();
+    // Fetch username from API
+    const fetchUsername = async () => {
+      try {
+        const res = await fetch("/api/me");
+        const data = await res.json();
+        setUsername(data.username);
+      } catch {
+        setUsername(null);
+      }
+    };
+    fetchUsername();
   }, []);
   return (
     <div>
-      
-    
-
-
-      <div className="flex justify-between items-center">  
-      <h1 className="border-b-2 flex justify-center items-center text-4xl">
-        {phone && <span className="ml-4 text-lg text-gray-400">{phone}</span>}
-      </h1>
-      {/* logout button */}
-      <div>
-        {/* <button className="p-2 m-2 bg-red-900 text-white rounded-2xl" onClick={logout}>
-        Log out
-      </button> */}
+      <div className="flex justify-between p-2 m-2 border-b-2">
+        <div className="text-lg font-semibold text-amber-500">{username ? `Welcome ${username}` : "no username found"}</div>
+        <button className="bg-red-800 text-white rounded-2xl px-4 " onClick={logout}>
+          Log out
+        </button>
       </div>
+
+      <div className="flex flex-col p-2 ml-4">
+        {/* mas data input */}
+        <h2>Upload MAS JSON File</h2>
+        <div className="m-2 flex gap-4">
+          <input
+            className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+            type="file"
+            accept=".json"
+            onChange={handleMasFileChange}
+          />
+          <button
+            className="border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600"
+            onClick={getMasdata}
+          >
+            Show the mas data
+          </button>
+        </div>
+        {/* lgr data input */}
+        <div>
+          <h2 className="ml-2">Upload LGR JSON File here </h2>
+          <div className="m-2 flex gap-4">
+            <input
+              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+              type="file"
+              accept=".json"
+              onChange={handleLgrFileChange}
+            />
+          </div>
+        </div>
       </div>
 
       {data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-96">
-           {/* mas data input */}
-          <h2>Upload MAS JSON File</h2>
-            <div className="m-2 flex gap-4">
-              <input
-                className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
-                type="file"
-                accept=".json"
-                onChange={handleMasFileChange}
-              />
-              <button
-                className="border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600"
-                onClick={getMasdata}
-              >
-                Show the mas data
-              </button>
-            </div>
-              {/* lgr data input */}
-          <div>
-            <h2 className="ml-2">Upload LGR JSON File here </h2>
-            <div className="m-2 flex gap-4">
-              <input
-                className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
-                type="file"
-                accept=".json"
-                onChange={handleLgrFileChange}
-              />
-            </div>
-          </div>
-          
+      <div className=" w-1/2 mx-auto bg-gray-900 text-blue-100 p-4 rounded align-center">
+          no data found, please upload both the mas file and the lgr file at
+          once.
         </div>
       ) : (
         <>
-
-      {/* search input */}
-      <div>
-        <input
-          type="text"
-          placeholder="Search by any field..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
-        />
-      </div>
+          {/* search input */}
+          <div>
+            <input
+              type="text"
+              placeholder="Search by any field..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+            />
+          </div>
 
           {/* masdata for display */}
           <div className="flex-wrap w-full m-2">
@@ -229,7 +217,7 @@ function Page() {
         </>
       )}
     </div>
-  );         
+  );
 }
 
 export default Page;

@@ -1,5 +1,5 @@
 // lib/auth.ts
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 // Define the interface for decoded token
 export interface DecodedToken {
@@ -27,7 +27,7 @@ export function verifyToken(token: string): VerifyTokenResult {
     // Use the same secret as in login API
     const jwtSecret = process.env.secret!;
     if (!jwtSecret) {
-      throw new Error('JWT secret is not defined in environment variables');
+      return { success: false, error: "JWT secret not set" };
     }
     // Verify the token
     const decoded = jwt.verify(token, jwtSecret) as DecodedToken;
@@ -37,10 +37,7 @@ export function verifyToken(token: string): VerifyTokenResult {
     }
     return { success: true, decoded };
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message || 'Token verification failed'
-    };
+    return { success: false, error: error.message || 'Token verification failed' };
   }
 }
 
@@ -51,7 +48,7 @@ export function verifyToken(token: string): VerifyTokenResult {
  * @returns The signed JWT token
  */
 export function createToken(payload: object, expiresIn: string = '24h'): string {
-  const jwtSecret = process.env.JWT_SECRET;
+  const jwtSecret = process.env.secret!;
   
   if (!jwtSecret) {
     throw new Error('JWT_SECRET is not defined in environment variables');

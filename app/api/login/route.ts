@@ -27,13 +27,15 @@ export async function POST(request: NextRequest) {
   );
 
   // Set token in cookie
-  // Set cookie flags: Max-Age=86400 (24h), Secure (only for HTTPS)
+    // Set token in cookie with HttpOnly, SameSite=Strict, and Max-Age
   const isProduction = process.env.NODE_ENV === "production";
-  const secureFlag = isProduction ? "; Secure" : "";
-  return NextResponse.json({ token, role: user.role }, {
-    status: 200,
-    headers: {
-      "Set-Cookie": `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${secureFlag}`
-    }
-  });
+  const secureFlag = isProduction ? " Secure" : "";
+  const response =  NextResponse.json({ token, role: user.role }, {
+      status: 200,
+      headers: {
+        "Set-Cookie": `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${secureFlag}`
+      }
+    });
+    response.cookies.set("token", token, {httpOnly: false, sameSite: "strict", maxAge: 60 * 60 * 24});
+    return response
 }

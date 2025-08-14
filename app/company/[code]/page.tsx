@@ -77,7 +77,7 @@ useEffect(()=>{
 
   return (
     <div>
-        <h1 className='border-b-2 flex justify-center items-center text-4xl'>Account statement for: {code} company</h1>
+        <h1 className=' flex justify-center items-center bg-gray-800 text-2xl p-2 m-2'>Account statement for {code} company</h1>
         
       {/* <h2 className='ml-2'>Upload LGR JSON File here </h2> */}
     <div className='m-2 flex gap-4'>
@@ -100,46 +100,87 @@ useEffect(()=>{
             ))} */}
 
             {lgrdata.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border border-gray-300 rounded-lg">
-            <thead className="bg-gray-800 text-white">
-              <tr>
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Book</th>
-                <th className="px-4 py-2">Particulars</th>
-                <th className="px-4 py-2">Debit</th>
-                <th className="px-4 py-2">Credit</th>
-                <th className="px-4 py-2">Balance</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white text-center">
-              {lgrdata.map((item, index) => {
-                // Format date from ISO to dd-mm-yy
-                const formatDate = (dateString: string) => {
-                  const date = new Date(dateString);
-                  const day = date.getDate().toString().padStart(2, '0');
-                  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                  const year = date.getFullYear().toString().slice(-2);
-                  return `${day}-${month}-${year}`;
-                };
-
-                return (
-                  <tr key={item._id || index} className="border-b text-black">
-                    <td className="px-4 py-2">{formatDate(item.DATE)}</td>
-                    <td className="px-4 py-2">{item.BOOK}</td>
-                    <td className="px-4 py-2">{item.PARTICULARS}</td>
-                    <td className="px-4 py-2 text-green-600 font-medium">{item.DEBIT}</td>
-                    <td className="px-4 py-2 text-red-600 font-medium">{item.CREDIT}</td>
-                    <td className="px-4 py-2 font-semibold">{item.BALANCE}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-gray-600">No data found.</p>
-      )}
+              <div>
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full table-auto border border-gray-300 rounded-lg">
+                    <thead className="bg-gray-800 text-white">
+                      <tr>
+                        <th className="px-4 py-2">Date</th>
+                        <th className="px-4 py-2">Book</th>
+                        <th className="px-4 py-2">Particulars</th>
+                        <th className="px-4 py-2">Debit</th>
+                        <th className="px-4 py-2">Credit</th>
+                        <th className="px-4 py-2">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white text-center">
+                      {lgrdata.map((item, index) => {
+                        const formatDate = (dateString: string) => {
+                          const date = new Date(dateString);
+                          const day = date.getDate().toString().padStart(2, '0');
+                          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                          const year = date.getFullYear().toString().slice(-2);
+                          return `${day}-${month}-${year}`;
+                        };
+                        return (
+                          <tr key={item._id || index} className="border-b text-black">
+                            <td className="px-4 py-2">{formatDate(item.DATE)}</td>
+                            <td className="px-4 py-2">{item.BOOK}</td>
+                            <td className="px-4 py-2">{item.PARTICULARS}</td>
+                            <td className="px-4 py-2 text-green-600 font-medium">{item.DEBIT}</td>
+                            <td className="px-4 py-2 text-red-600 font-medium">{item.CREDIT}</td>
+                            <td className="px-4 py-2 font-semibold">{item.BALANCE}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Mobile Card List */}
+                <div className="md:hidden flex flex-col gap-4 mt-4">
+                  {lgrdata.map((item, index) => {
+                    const formatDate = (dateString: string) => {
+                      const date = new Date(dateString);
+                      const day = date.getDate().toString().padStart(2, '0');
+                      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                      const year = date.getFullYear().toString().slice(-2);
+                      return `${day}-${month}-${year}`;
+                    };
+                    return (
+                      <div key={item._id || index} className="bg-white rounded-lg shadow p-4 text-black border">
+                        <div className="flex justify-between mb-2">
+                          <span className="font-semibold">Date:</span>
+                          <span>{formatDate(item.DATE)}</span>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span className="font-semibold">Book:</span>
+                          <span>{item.BOOK}</span>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span className="font-semibold">Particulars:</span>
+                          <span>{item.PARTICULARS}</span>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span className="font-semibold">Debit:</span>
+                          <span className="text-green-600 font-medium">{item.DEBIT}</span>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span className="font-semibold">Credit:</span>
+                          <span className="text-red-600 font-medium">{item.CREDIT}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-semibold">Balance:</span>
+                          <span className="font-semibold">{item.BALANCE}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-600">No data found.</p>
+            )}
            
       
 

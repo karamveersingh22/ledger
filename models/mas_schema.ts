@@ -3,8 +3,7 @@ import mongoose from 'mongoose'
 const masschema = new mongoose.Schema({
   CODE: {
     type: Number,
-    required: true, // Assuming CODE is a mandatory field
-    unique: true // Assuming CODE should be unique
+    required: true // CODE is mandatory, but not unique per user
   },
   ACCOUNT_N: {
     type: String,
@@ -114,9 +113,9 @@ const masschema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  user:{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+  user: {
+    type: String,
+    required: true
   }
 
 },{timestamps: true })

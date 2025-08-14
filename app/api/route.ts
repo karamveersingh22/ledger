@@ -30,17 +30,13 @@ export const POST = async (request: NextRequest) => {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
     const userData = result.decoded;
-
-    // 🔥 Delete existing data
-  await mas.deleteMany({ user: userData.id }); // delete previous data of this user
-
+    // Use username for user association
+    await mas.deleteMany({ user: userData.username }); // delete previous data of this user
     const data = await request.json();
     // ✅ Insert fresh data
-
     const enrichedData = Array.isArray(data)
-      ? data.map((d) => ({ ...d, user: userData.id }))
-      : { ...data, user: userData.id };
-
+      ? data.map((d) => ({ ...d, user: userData.username }))
+      : { ...data, user: userData.username };
     if (Array.isArray(enrichedData)) {
       await mas.insertMany(enrichedData);
     } else {
@@ -71,12 +67,10 @@ export const GET = async (request: NextRequest) => {
     if (!result.success || !result.decoded) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const userData = result.decoded;
-
-    // ✅ Get only this user's records
-    const userRecords = await mas.find({ user: userData.id });
-
-    return NextResponse.json(userRecords);
+  const userData = result.decoded;
+  // ✅ Get only this user's records (by username)
+  const userRecords = await mas.find({ user: userData.username });
+  return NextResponse.json(userRecords);
   } catch (error) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
