@@ -4,11 +4,11 @@ export const lgrschema = new mongoose.Schema({
 
 CODE: {
     type: Number,
-    required: true, // Assuming CODE is a mandatory identifier
+    // required: true, // Assuming CODE is a mandatory identifier
   },
   ACCOUNT_N: {
     type: String,
-    required: true,
+    // required: true,
   },
   VC_NUMBER: {
     type: Number, // Can be null, so Number is appropriate
@@ -40,7 +40,7 @@ CODE: {
   },
   DATE: {
     type: Date,
-    required: true, // Assuming DATE is mandatory
+    // required: true, // Assuming DATE is mandatory
   },
   BILL: {
     type: String,

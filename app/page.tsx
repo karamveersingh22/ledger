@@ -113,12 +113,12 @@ function Page() {
   }, []);
   return (
     <div>
-      <div className="flex justify-between p-2 m-2 border-b-2">
+      {/* <div className="flex justify-between p-2 m-2 border-b-2">
         <div className="text-lg font-semibold text-amber-500">{username ? `Welcome ${username}` : "no username found"}</div>
         <button className="bg-red-800 text-white rounded-2xl px-4 " onClick={logout}>
           Log out
         </button>
-      </div>
+      </div> */}
 
       <div className="flex flex-col p-2 ml-4">
         {/* mas data input */}
