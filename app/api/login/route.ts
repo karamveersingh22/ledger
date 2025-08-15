@@ -36,6 +36,6 @@ export async function POST(request: NextRequest) {
         "Set-Cookie": `token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${secureFlag}`
       }
     });
-    response.cookies.set("token", token, {httpOnly: false, sameSite: "strict", maxAge: 60 * 60 * 24});
+    response.cookies.set("token", token, {httpOnly: true, sameSite: "strict", maxAge: 60 * 60 * 24});
     return response
 }
