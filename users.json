@@ -13,10 +13,5 @@
     "username": "client2",
     "password": "karam@123",
     "role": "client"
-  },
-  {
-    "username": "client3",
-    "password": "karam@123",
-    "role": "client"
   }
 ]

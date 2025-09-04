@@ -125,13 +125,13 @@ function Page() {
         <h2>Upload MAS JSON File</h2>
         <div className="m-2 flex gap-4">
           <input
-            className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+            className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600"
             type="file"
             accept=".json"
             onChange={handleMasFileChange}
           />
           <button
-            className="border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600"
+            className="border white bg-gray-800 rounded-3xl p-2 active:bg-gray-600 hover:bg-gray-600 "
             onClick={getMasdata}
           >
             Show the mas data
@@ -142,7 +142,7 @@ function Page() {
           <h2 className="ml-2">Upload LGR JSON File here </h2>
           <div className="m-2 flex gap-4">
             <input
-              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600"
               type="file"
               accept=".json"
               onChange={handleLgrFileChange}
@@ -165,53 +165,55 @@ function Page() {
               placeholder="Search by any field..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 "
+              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600"
             />
           </div>
 
           {/* masdata for display */}
-          <div className="flex-wrap w-full m-2">
-            <div className="border p-2 my-2 bg-gray-800 rounded  h-1/5">
-              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                <thead className="bg-gray-200">
-                  <tr>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
-                      CODE
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
-                      Account Name
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
-                      Amount
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
-                      City
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredData.map((item: any) => (
-                    <tr
-                      onClick={() => fetchinside(item.CODE)}
-                      key={item.CODE}
-                      className="hover:bg-gray-50 transition-colors duration-200"
-                    >
-                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
-                        {item.CODE}
-                      </td>
-                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
-                        {item.ACCOUNT_N}
-                      </td>
-                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
-                        {item.AMOUNT}
-                      </td>
-                      <td className="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">
-                        {item.CITY}
-                      </td>
+          <div className="flex-wrap w-full">
+            <div className="border w-full p-2 my-2 bg-gray-800 rounded h-1/5">
+              <div className="w-full">
+                <table className="w-full bg-white border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="py-2 px-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                        CODE
+                      </th>
+                      <th className="py-2 px-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                        Account Name
+                      </th>
+                      <th className="py-2 px-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                        Amount
+                      </th>
+                      <th className="py-2 px-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase tracking-wider border-b">
+                        City
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredData.map((item: any) => (
+                      <tr
+                        onClick={() => fetchinside(item.CODE)}
+                        key={item.CODE}
+                        className="hover:bg-gray-50 active:bg-gray-50 transition-colors duration-200"
+                      >
+                        <td className="py-2 px-2 border-b border-gray-200 text-xs md:text-sm text-gray-800">
+                          {item.CODE}
+                        </td>
+                        <td className="py-2 px-2 border-b border-gray-200 text-xs md:text-sm text-gray-800">
+                          {item.ACCOUNT_N}
+                        </td>
+                        <td className="py-2 px-2 border-b border-gray-200 text-xs md:text-sm text-gray-800">
+                          {item.AMOUNT}
+                        </td>
+                        <td className="py-2 px-2 border-b border-gray-200 text-xs md:text-sm text-gray-800">
+                          {item.CITY}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </>

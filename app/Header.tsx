@@ -37,7 +37,7 @@ function Header() {
       >
         <a
           href="/login"
-          className="text-2xl font-bold text-white underline bg-amber-600 rounded-2xl px-6 py-4 hover:bg-amber-400 shadow-lg"
+          className="text-2xl font-bold text-white underline bg-amber-600 rounded-2xl px-6 py-4 hover:bg-amber-400 shadow-lg active:bg-amber-400"
         >
           Please login to continue
         </a>
@@ -49,7 +49,7 @@ function Header() {
       <div>
         {`Welcome ${username}`}
       </div>
-      <button onClick={handleLogout} className="px-3 py-1 bg-red-500 text-white rounded">Logout</button>
+      <button onClick={handleLogout} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-800 active:bg-red-800">Logout</button>
     </header>
   );
 }
