@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 }
 
 // ...existing code...
-import Header from "./Header";
+import ClientHeader from "./ClientHeader";
 
 export default function RootLayout({
   children,
@@ -30,7 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <Analytics/>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Header />
+  <ClientHeader />
         {children}
       </body>
     </html>
