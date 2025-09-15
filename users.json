@@ -13,6 +13,11 @@
     "username": "client2",
     "password": "karam@123",
     "role": "client"
+  },
+  {
+    "username": "amitarmy",
+    "password": "Guruji",
+    "role": "client"
   }
  
 ]
