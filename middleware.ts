@@ -5,20 +5,38 @@ export async function middleware(req: any) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("token")?.value;
 
-  // Only protect /admin and /company/:path*
-  if (pathname.startsWith("/admin")) {
+  // Protect /manage for admins only
+  if (pathname.startsWith('/manage')) {
     if (!token) {
-      return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(new URL("/login", req.url), 302); // use 302 instead of default 307
     }
     let result;
     try {
       result = verifyToken(token);
     } catch {
-      return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(new URL("/login", req.url), 302);
     }
     const { success, decoded } = result || {};
     if (!success || !decoded || decoded.role !== "admin") {
-      return NextResponse.redirect(new URL("/manage", req.url));
+      return NextResponse.redirect(new URL("/login", req.url), 302);
+    }
+    
+  }
+
+  // Prevent authenticated users from visiting /login
+  if (pathname === '/login') {
+    if (token) {
+      try {
+        const { success, decoded } = verifyToken(token);
+        if (success && decoded) {
+          const target = decoded.role === 'admin' ? '/manage' : '/';
+          if (pathname !== target) {
+            return NextResponse.redirect(new URL(target, req.url), 302);
+          }
+        }
+      } catch {
+        // ignore invalid token (they can see login page)
+      }
     }
   }
   // if (pathname.startsWith("/company")) {
@@ -35,5 +53,6 @@ export async function middleware(req: any) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  // matcher: ['/manage', '/manage/:path*', '/login'],
+  matcher: ['/login'],
 };
