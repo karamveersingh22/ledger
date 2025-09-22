@@ -7,7 +7,7 @@ const masschema = new mongoose.Schema({
   },
   ACCOUNT_N: {
     type: String,
-    required: true
+    // required: true
   },
   TITLE: {
     type: String,
@@ -23,11 +23,11 @@ const masschema = new mongoose.Schema({
   },
   MAIN_CODE: {
     type: String,
-    required: true
+    // required: true
   },
   HEAD_NAME: {
     type: String,
-    required: true
+    // required: true
   },
   LEVEL: {
     type: String,
