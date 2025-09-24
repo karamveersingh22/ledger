@@ -60,16 +60,16 @@ function Page() {
         }
     }
 
-    const getLgrdata = async ()=>{
-        try {
-            const response = await axios.get(`/api/company?code=${code}`)
-            console.log("API Response:", response.data);
-            setlgrdata(response.data)
-            console.log("Data length:", response.data.length);
-        } catch (error: any) {
-            console.log(error,"error in getting the data from the frontend");
-        }
+  const getLgrdata = async ()=>{
+    try {
+      if(!code) return;
+      const response = await axios.get(`/api/company?code=${code}`)
+      setlgrdata(Array.isArray(response.data) ? response.data : [])
+    } catch (error: any) {
+      console.log(error,"error in getting the data from the frontend");
+      setlgrdata([])
     }
+  }
 useEffect(()=>{
     getLgrdata()
 },[])

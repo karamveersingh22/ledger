@@ -4,6 +4,7 @@ import { lgr } from "@/models/lgr_schema";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
+import { User } from "@/models/user_schema"; // Needed to resolve user _id from username in token
 connectdb()
 
 // previous code
@@ -46,40 +47,46 @@ connectdb()
 // }
 
 export const POST = async (request: NextRequest) => {
-    try {
-      // verifying the user through token from cookies
-      const token = (await cookies()).get("token")?.value;
-      const result = token ? verifyToken(token) : { success: false };
-      if (!result.success || !result.decoded) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-      }
-      const userData = result.decoded;
-  
-      // 🔥 Delete existing data
-  await lgr.deleteMany({ user: userData.id }); // delete previous data of this user
-  
-      const data = await request.json();
-      // ✅ Insert fresh data
-  
-      const enrichedData = Array.isArray(data)
-        ? data.map((d) => ({ ...d, user: userData.id }))
-        : { ...data, user: userData.id };
-  
-      if (Array.isArray(enrichedData)) {
-        await lgr.insertMany(enrichedData);
-      } else {
-        await lgr.create(enrichedData);
-      }
-      console.log("lgr data inserted in db by the backend ");
-      return NextResponse.json(
-        { message: "lgr Data inserted successfully" },
-        { status: 200 }
-      );
-    } catch (error: any) {
-      console.log("lgr upload error from the backend", error);
-      return NextResponse.json({ message: "lgr upload error in backend" });
+  try {
+    // Verify the user via token (cookie)
+    const token = (await cookies()).get("token")?.value;
+    const result = token ? verifyToken(token) : { success: false };
+    if (!result.success || !result.decoded) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-  };
+    const { username } = result.decoded;
+
+    // Resolve current user _id (token currently doesn't carry id)
+    const userDoc = await User.findOne({ username }).select('_id');
+    if (!userDoc) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    // Delete previous lgr rows for this user before inserting fresh upload
+    await lgr.deleteMany({ user: userDoc._id });
+
+    const data = await request.json();
+
+    const userId = userDoc._id;
+    const enrichedData = Array.isArray(data)
+      ? data.map((d) => ({ ...d, user: userId }))
+      : { ...data, user: userId };
+
+    if (Array.isArray(enrichedData)) {
+      await lgr.insertMany(enrichedData);
+    } else {
+      await lgr.create(enrichedData);
+    }
+    console.log("lgr data inserted in db by the backend");
+    return NextResponse.json(
+      { message: "lgr Data inserted successfully" },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.log("lgr upload error from the backend", error);
+    return NextResponse.json({ message: "lgr upload error in backend" }, { status: 500 });
+  }
+};
 
 // export const GET = async (request : NextRequest)=>{
 //     try {
@@ -97,27 +104,40 @@ export const POST = async (request: NextRequest) => {
 // }
 
 export const GET = async (request: NextRequest) => {
-    try {
-      // fetching from the header
-      // const token = request.headers.get("authorization")?.split(" ")[1];
-      // if (!token) {
-      //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      // }
-  
-      // fetching from the cookies
-      const token = (await cookies()).get("token")?.value;
-      const result = token ? verifyToken(token) : { success: false };
-      if (!result.success || !result.decoded) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      const userData = result.decoded;
+  try {
+    const { searchParams } = new URL(request.url);
+    const codeParam = searchParams.get('code');
 
-      // ✅ Get only this user's records
-      const userRecords = await lgr.find({ user: userData.id });
-
-      return NextResponse.json(userRecords);
-    } catch (error) {
-      return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+    // Verify auth via cookie
+    const token = (await cookies()).get("token")?.value;
+    const result = token ? verifyToken(token) : { success: false };
+    if (!result.success || !result.decoded) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  };
+    const { username } = result.decoded;
+
+    const userDoc = await User.findOne({ username }).select('_id');
+    if (!userDoc) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Build query: always constrain by user; optionally by code
+    const query: any = { user: userDoc._id };
+    if (codeParam) {
+      const numeric = Number(codeParam);
+      if (!isNaN(numeric)) {
+        query.CODE = numeric; // Match numeric CODE field
+      } else {
+        // Fallback: try matching MAIN_KEY or K1 if provided code isn't numeric
+        query.$or = [{ MAIN_KEY: codeParam }, { K1: codeParam }];
+      }
+    }
+
+    const records = await lgr.find(query).lean();
+    return NextResponse.json(records, { status: 200 });
+  } catch (error: any) {
+    console.error('lgr GET error:', error);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  }
+};
   
