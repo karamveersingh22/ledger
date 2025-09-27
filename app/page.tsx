@@ -29,9 +29,11 @@ function Page() {
 
         // Send JSON to backend
         const response = await axios.post("/api/", json);
+        alert("MAS data uploaded successfully");
         console.log("Uploaded successfully:", response.data);
       } catch (err) {
         console.error("Invalid JSON file:", err);
+        alert("Invalid JSON file. Please upload a valid JSON.");
       }
     };
     reader.readAsText(file);
@@ -49,8 +51,10 @@ function Page() {
         // Send JSON to backend
         const response = await axios.post("/api/company", json);
         console.log("Uploaded successfully:", response.data);
+        alert("LGR data uploaded successfully");
       } catch (err) {
         console.error("Invalid JSON file:", err);
+        alert("Invalid JSON file. Please upload a valid JSON.")
       }
     };
     reader.readAsText(file);

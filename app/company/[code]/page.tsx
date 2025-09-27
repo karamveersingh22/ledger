@@ -67,6 +67,7 @@ function Page() {
       setlgrdata(Array.isArray(response.data) ? response.data : [])
     } catch (error: any) {
       console.log(error,"error in getting the data from the frontend");
+      alert("error in getting the data from the frontend");
       setlgrdata([])
     }
   }
