@@ -77,12 +77,12 @@ useEffect(()=>{
 
   return (
     <div>
-        <h1 className=' flex justify-center items-center bg-gray-800 text-2xl p-2 m-2'>Account statement for {code} company</h1>
+        <h1 className=' flex justify-center items-center bg-gray-800 text-2xl text-gray-300 p-2 m-2'>Account statement for {code} company</h1>
         
       {/* <h2 className='ml-2'>Upload LGR JSON File here </h2> */}
     <div className='m-2 flex gap-4'>
       {/* <input className='w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 ' type="file" accept=".json" onChange={handleFileChange} /> */}
-     <button className='border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600 active:bg-gray-600' onClick={getLgrdata}>Show the lgr data</button>
+     <button className='border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600 text-gray-300 active:bg-gray-600' onClick={getLgrdata}>Show the lgr data</button>
     </div>
 
 
