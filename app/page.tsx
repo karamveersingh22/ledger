@@ -123,15 +123,15 @@ function Page() {
       <div className="flex flex-col p-2 ml-4">
         {/* mas data input */}
         <h2>Upload MAS JSON File</h2>
-        <div className="m-2 flex gap-4">
+        <div className="m-2 flex gap-4 ">
           <input
-            className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600"
+            className="w-1/3 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600 text-gray-300"
             type="file"
             accept=".json"
             onChange={handleMasFileChange}
           />
           <button
-            className="border white bg-gray-800 rounded-3xl p-2 active:bg-gray-600 hover:bg-gray-600 "
+            className="border white bg-gray-800 rounded-3xl p-2 active:bg-gray-600 hover:bg-gray-600 text-gray-300"
             onClick={getMasdata}
           >
             Show the mas data
@@ -142,7 +142,7 @@ function Page() {
           <h2 className="ml-2">Upload LGR JSON File here </h2>
           <div className="m-2 flex gap-4">
             <input
-              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600"
+              className="w-1/3 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600 text-gray-300"
               type="file"
               accept=".json"
               onChange={handleLgrFileChange}
@@ -159,13 +159,13 @@ function Page() {
       ) : (
         <>
           {/* search input */}
-          <div>
+          <div className=" ml-10 ">
             <input
               type="text"
               placeholder="Search by any field..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600"
+              className="w-1/2 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 active:bg-gray-600 text-gray-300"
             />
           </div>
 
