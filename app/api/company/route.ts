@@ -133,7 +133,16 @@ export const GET = async (request: NextRequest) => {
       }
     }
 
-    const records = await lgr.find(query).lean();
+    // Fetch sorted by DATE ascending. Some rows may have invalid/epoch placeholder dates.
+    // We'll sort at DB level, then ensure stable ordering in memory placing null/invalid at end.
+    let records = await lgr.find(query).sort({ DATE: 1, _id: 1 }).lean();
+    // Additional safety: move records with falsy DATE to end preserving relative order.
+    const withDate: any[] = [];
+    const withoutDate: any[] = [];
+    for (const r of records) {
+      if (r.DATE) withDate.push(r); else withoutDate.push(r);
+    }
+    records = [...withDate, ...withoutDate];
     return NextResponse.json(records, { status: 200 });
   } catch (error: any) {
     console.error('lgr GET error:', error);
