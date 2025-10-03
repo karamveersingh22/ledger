@@ -20,13 +20,13 @@ export async function POST(request: NextRequest) {
   try {
     const admin = await requireAdmin();
     if (!admin.ok) return admin.response;
-    const { username, password, role } = await request.json();
+    const { username, password, role, masterPath = '', ledgerPath = '' } = await request.json();
     if (!username || !password) return NextResponse.json({ error: 'Missing username or password' }, { status: 400 });
     if (role !== 'client') return NextResponse.json({ error: 'Only client users can be added.' }, { status: 400 });
     await connectdb();
     const existing = await User.findOne({ username });
     if (existing) return NextResponse.json({ error: 'User already exists.' }, { status: 400 });
-    await User.create({ username, password, role: 'client' });
+    await User.create({ username, password, role: 'client', masterPath, ledgerPath });
     return NextResponse.json({ message: 'Client user added successfully.' }, { status: 201 });
   } catch (err: any) {
     console.error('Manage POST error:', err);
@@ -58,7 +58,7 @@ export async function GET() {
     const admin = await requireAdmin();
     if (!admin.ok) return admin.response;
     await connectdb();
-    const clients = await User.find({ role: 'client' }).select('-__v -updatedAt');
+  const clients = await User.find({ role: 'client' }).select('-__v -updatedAt');
     return NextResponse.json(clients, { status: 200 });
   } catch (err: any) {
     console.error('Manage GET error:', err);

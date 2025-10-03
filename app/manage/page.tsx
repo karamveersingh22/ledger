@@ -6,6 +6,8 @@ function ManagePage() {
   const [users, setUsers] = useState([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [masterPath, setMasterPath] = useState("");
+  const [ledgerPath, setLedgerPath] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,10 +32,12 @@ function ManagePage() {
     e.preventDefault();
     setMessage("");
     try {
-      const res = await axios.post("/api/manage", { username, password, role: "client" });
+      const res = await axios.post("/api/manage", { username, password, role: "client", masterPath, ledgerPath });
       setMessage(res.data.message);
       setUsername("");
       setPassword("");
+      setMasterPath("");
+      setLedgerPath("");
       fetchUsers();
     } catch (err: any) {
       setMessage(err.response?.data?.error || "Error adding user");
@@ -72,6 +76,22 @@ function ManagePage() {
           className="border p-2 rounded"
           required
         />
+        <input
+          type="text"
+          placeholder="Master Path"
+          value={masterPath}
+          onChange={e => setMasterPath(e.target.value)}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Ledger Path"
+          value={ledgerPath}
+          onChange={e => setLedgerPath(e.target.value)}
+          className="border p-2 rounded"
+          required
+        />
         <button type="submit" className="bg-blue-600 text-white p-2 rounded">Add Client User</button>
       </form>
       {message && <div className="mb-4 text-red-600">{message}</div>}
@@ -84,14 +104,18 @@ function ManagePage() {
             <li>No client users found.</li>
           ) : (
             users.map((user: any) => (
-              <li key={user._id} className="flex justify-between items-center border p-2 rounded">
-                <span>{user.username}</span>
-                <button
-                  className="bg-red-600 text-white px-3 py-1 rounded"
-                  onClick={() => handleDeleteUser(user.username)}
-                >
-                  Delete
-                </button>
+              <li key={user._id} className="flex flex-col gap-1 border p-2 rounded">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold">{user.username}</span>
+                  <button
+                    className="bg-red-600 text-white px-3 py-1 rounded"
+                    onClick={() => handleDeleteUser(user.username)}
+                  >
+                    Delete
+                  </button>
+                </div>
+                <div className="text-xs text-gray-600"><strong>Master Path:</strong> {user.masterPath || '-'}</div>
+                <div className="text-xs text-gray-600"><strong>Ledger Path:</strong> {user.ledgerPath || '-'}</div>
               </li>
             ))
           )}

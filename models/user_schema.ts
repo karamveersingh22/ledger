@@ -13,6 +13,14 @@ export const userschema = new mongoose.Schema({
         type: String,
         enum: ['admin','client'],
         required: true
+    },
+    masterPath: {
+        type: String,
+        default: ''
+    },
+    ledgerPath: {
+        type: String,
+        default: ''
     }
 },{timestamps:true})
 

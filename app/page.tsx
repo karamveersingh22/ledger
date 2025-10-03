@@ -16,6 +16,8 @@ function Page() {
   const [fileContent, setFileContent] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [username, setUsername] = useState<string | null>(null);
+  const [masterPath, setMasterPath] = useState<string>("");
+  const [ledgerPath, setLedgerPath] = useState<string>("");
 
   const handleMasFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,17 +105,20 @@ function Page() {
 
   useEffect(() => {
     getMasdata();
-    // Fetch username from API
-    const fetchUsername = async () => {
+    const fetchMeta = async () => {
       try {
-        const res = await fetch("/api/me");
-        const data = await res.json();
-        setUsername(data.username);
-      } catch {
+        const res = await fetch('/api/me');
+        const meta = await res.json();
+        setUsername(meta.username || null);
+        setMasterPath(meta.masterPath || '');
+        setLedgerPath(meta.ledgerPath || '');
+      } catch (e) {
         setUsername(null);
+        setMasterPath('');
+        setLedgerPath('');
       }
     };
-    fetchUsername();
+    fetchMeta();
   }, []);
   return (
     <div>
@@ -141,6 +146,7 @@ function Page() {
             Show the mas data
           </button>
         </div>
+  {masterPath && <div className="ml-2 text-xs text-gray-400 select-all" title={masterPath}>Master Path: {masterPath}</div>}
         {/* lgr data input */}
         <div>
           <h2 className="ml-2">Upload LGR JSON File here </h2>
@@ -152,6 +158,7 @@ function Page() {
               onChange={handleLgrFileChange}
             />
           </div>
+          {ledgerPath && <div className="ml-2 text-xs text-gray-400 select-all" title={ledgerPath}>Ledger Path: {ledgerPath}</div>}
         </div>
       </div>
 
