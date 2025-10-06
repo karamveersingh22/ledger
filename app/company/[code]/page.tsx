@@ -1,7 +1,10 @@
 "use client"
 import axios from 'axios'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import jsPDF from 'jspdf'
+// @ts-ignore - jspdf-autotable has no default export types in some setups
+import autoTable from 'jspdf-autotable'
 
 function Page() {
     const params = useParams()
@@ -75,6 +78,45 @@ useEffect(()=>{
     getLgrdata()
 },[])
 
+  const formattedRows = useMemo(() => {
+    const formatDate = (dateString: string) => {
+      const d = new Date(dateString as any)
+      if (isNaN(d.getTime())) return ''
+      const day = d.getDate().toString().padStart(2, '0')
+      const month = (d.getMonth() + 1).toString().padStart(2, '0')
+      const year = d.getFullYear().toString().slice(-2)
+      return `${day}-${month}-${year}`
+    }
+    return lgrdata.map(r => [
+      formatDate(r.DATE as unknown as string),
+      r.BOOK ?? '',
+      r.PARTICULARS ?? '',
+      r.DEBIT ?? '',
+      r.CREDIT ?? '',
+      r.BALANCE ?? ''
+    ])
+  }, [lgrdata])
+
+  const downloadPdf = () => {
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      doc.setFontSize(14)
+      doc.text(`Account statement for ${code} company`, 40, 40)
+      // @ts-ignore
+      autoTable(doc, {
+        startY: 60,
+        head: [["Date","Book","Particulars","Debit","Credit","Balance"]],
+        body: formattedRows as any,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [33, 33, 33], textColor: 255 },
+        theme: 'grid',
+      })
+      doc.save(`ledger_${code}.pdf`)
+    } catch (e) {
+      console.error('PDF generation failed:', e)
+    }
+  }
+
 
   return (
     <div>
@@ -84,6 +126,7 @@ useEffect(()=>{
     <div className='m-2 flex gap-4'>
       {/* <input className='w-1/6 p-2 rounded-2xl border white bg-gray-800 text-center  hover:bg-gray-600 ' type="file" accept=".json" onChange={handleFileChange} /> */}
      <button className='border white bg-gray-800 rounded-3xl p-2 hover:bg-gray-600 text-gray-300 active:bg-gray-600' onClick={getLgrdata}>Show the lgr data</button>
+     <button className='border white bg-green-700 rounded-3xl p-2 hover:bg-green-600 text-white active:bg-green-700' onClick={downloadPdf}>Download PDF</button>
     </div>
 
 
