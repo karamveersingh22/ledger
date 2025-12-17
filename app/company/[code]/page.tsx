@@ -18,7 +18,7 @@ function Page() {
   _id?: string;
   DATE: string;
   BOOK: string;
-  PARTICULARS: string;
+  DESCRIBE: string;
   DEBIT: number;
   CREDIT: number;
   BALANCE: number;
@@ -90,7 +90,7 @@ useEffect(()=>{
     return lgrdata.map(r => [
       formatDate(r.DATE as unknown as string),
       r.BOOK ?? '',
-      r.PARTICULARS ?? '',
+      r.DESCRIBE ?? '', // Use DESCRIBE for 'Particulars'
       r.DEBIT ?? '',
       r.CREDIT ?? '',
       r.BALANCE ?? ''
@@ -171,7 +171,7 @@ useEffect(()=>{
                           <tr key={item._id || index} className="border-b text-black">
                             <td className="px-1 py-1 md:px-4 md:py-2">{formatDate(item.DATE)}</td>
                             <td className="px-1 py-1 md:px-4 md:py-2">{item.BOOK}</td>
-                            <td className="px-1 py-1 md:px-4 md:py-2 truncate max-w-[80px] md:max-w-none" title={item.PARTICULARS}>{item.PARTICULARS}</td>
+                            <td className="px-1 py-1 md:px-4 md:py-2 truncate max-w-[80px] md:max-w-none" title={item.DESCRIBE}>{item.DESCRIBE}</td>
                             <td className="px-1 py-1 md:px-4 md:py-2 text-green-600 font-medium">{item.DEBIT}</td>
                             <td className="px-1 py-1 md:px-4 md:py-2 text-red-600 font-medium">{item.CREDIT}</td>
                             <td className="px-1 py-1 md:px-4 md:py-2 font-semibold">{item.BALANCE}</td>
