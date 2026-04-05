@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -16,7 +15,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await axios.post("/api/login", { username, password, role });
+      const res = await axios.post("/api/login", { username, password });
       console.log(res.data);
       // Dispatch event so header can refresh username
       if (typeof window !== 'undefined') {
@@ -56,16 +55,6 @@ export default function LoginPage() {
           className="border p-2"
           required
         />
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="border p-2"
-          required
-        >
-          <option value="">Select Role</option>
-          <option value="admin">Admin</option>
-          <option value="client">Client</option>
-        </select>
         <button type="submit" disabled={loading} className="bg-blue-500 text-white p-2 rounded disabled:opacity-60 disabled:cursor-not-allowed">
           {loading ? 'Authenticating...' : 'Login'}
         </button>

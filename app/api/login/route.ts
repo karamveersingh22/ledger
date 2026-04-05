@@ -6,14 +6,14 @@ import { seedUsers } from '@/lib/seedUsers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password, role } = await request.json();
-    if (!username || !password || !role) {
+    const { username, password } = await request.json();
+    if (!username || !password) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
     }
     await connectdb();
     await seedUsers();
     // Plaintext password match (improve later with bcrypt)
-    const user = await User.findOne({ username, password, role });
+    const user = await User.findOne({ username, password });
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }

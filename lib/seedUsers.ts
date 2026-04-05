@@ -18,8 +18,20 @@ export async function seedUsers() {
     if (!Array.isArray(users) || users.length === 0) return;
     const unique: { username: string; password: string; role: string }[] = [];
     const seen = new Set<string>();
+    let adminSeeded = false;
     for (const u of users) {
-      if (u.username && !seen.has(u.username)) { seen.add(u.username); unique.push(u); }
+      if (!u?.username || seen.has(u.username)) continue;
+      seen.add(u.username);
+
+      const normalizedRole = u.role === 'admin' ? 'admin' : 'client';
+      if (normalizedRole === 'admin') {
+        if (adminSeeded) {
+          unique.push({ ...u, role: 'client' });
+          continue;
+        }
+        adminSeeded = true;
+      }
+      unique.push({ ...u, role: normalizedRole });
     }
     if (unique.length) await User.insertMany(unique);
   } catch (err) {
