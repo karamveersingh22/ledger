@@ -68,8 +68,17 @@ export const GET = async (request: NextRequest) => {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   const userData = result.decoded;
+  // Optional: filter to a single company by CODE (used by the ledger screen
+  // to read YR_BAL / opening balance for outstanding calculations).
+  const { searchParams } = new URL(request.url);
+  const codeParam = searchParams.get("code");
+  const query: any = { user: userData.username };
+  if (codeParam) {
+    const numeric = Number(codeParam);
+    if (!isNaN(numeric)) query.CODE = numeric;
+  }
   // ✅ Get only this user's records (by username)
-  const userRecords = await mas.find({ user: userData.username });
+  const userRecords = await mas.find(query);
   return NextResponse.json(userRecords);
   } catch (error) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });

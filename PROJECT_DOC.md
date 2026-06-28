@@ -31,9 +31,13 @@ Sample data files committed in the repo: [`mas.json`](mas.json) (master sample) 
 1. **Master / Home screen** (`/`) — a searchable table of the client's companies. Shows
    4 fields per row: `CODE`, `ACCOUNT_N` (account/company name), `AMOUNT`, `CITY`.
    Clicking a row opens that company's ledger.
-2. **Ledger screen** (`/company/[code]`) — the account statement for one company. Shows
-   6 columns: `DATE` (bill date), `BOOK`, `DESCRIBE` (shown as "Particulars"), `DEBIT`,
-   `CREDIT`, `BALANCE`. Has a **Download PDF** button.
+2. **Ledger screen** (`/company/[code]`) — the account statement for one company. Has a
+   3-way **view switcher** (segmented tabs, mobile-scrollable): **Ledger**, **Debtors
+   Outstanding**, **Creditors Outstanding**. Each view has a **Download PDF** button.
+   - *Ledger* view shows 6 columns: `DATE`, `BOOK`, `DESCRIBE` ("Particulars"), `DEBIT`,
+     `CREDIT`, `BALANCE`.
+   - *Debtors / Creditors Outstanding* show summary cards + a billwise running table with
+     a configurable **Due days** input (see §6.6).
 
 ---
 
@@ -172,6 +176,40 @@ DATE ascending (rows with no/invalid DATE pushed to the end).
 `company/[code]/page.tsx downloadPdf` → builds rows from `lgrdata` → `jspdf-autotable`
 renders a table → saves `ledger_<code>.pdf`. Title: "Account statement for <code> company".
 
+### 6.6 Debtors / Creditors Outstanding (ledger screen)
+Both views need the company's **opening balance `YR_BAL`** from the master record, so the
+ledger page now also calls `GET /api/?code=<CODE>` (master route gained optional `code`
+filtering) in addition to `GET /api/company?code=<CODE>` (ledger rows). All calculation is
+client-side in `app/company/[code]/page.tsx` (`debtors` and `creditors` `useMemo`s).
+
+A shared **Due days** input drives the overdue calculation:
+`overdueDays = (today − billDate in whole days) − dueDays`. `overdueDays > 0` ⇒ the bill is
+past due and the whole row is **red-flagged**. Negative ⇒ still within the allowed window.
+Dates use local-midnight to avoid timezone drift.
+
+**Debtors Outstanding** (money to collect from this company):
+- `creditTotal = Σ CREDIT` over all ledger rows.
+- `payment_to_collect` starts at `YR_BAL − creditTotal` (the initial figure).
+- For each **bill = ledger row with a non-zero `DEBIT`**, add `DEBIT` to the running
+  `payment_to_collect`; that running value is shown per row. The last row's value is the
+  final amount to collect. Positive final ⇒ amount to collect; negative ⇒ advance in hand.
+- Table columns: Bill Date (`DATE`), Bill Number (`BILL`), Overdue Days, Bill Amount
+  (`DEBIT`), Payment To Collect (running). Summary cards show YR_BAL, credit total, final.
+
+**Creditors Outstanding** (money we owe / to pay this company):
+- `debitTotal = Σ DEBIT` over all ledger rows.
+- `payment_to_pay` starts at 0; `-= YR_BAL` if `YR_BAL > 0`, `+= abs(YR_BAL)` if
+  `YR_BAL < 0` (net: `payment_to_pay = −YR_BAL`), then `-= debitTotal` (the initial figure).
+- For each **bill = ledger row with a non-zero `CREDIT`**, add `CREDIT` to the running
+  `payment_to_pay`; shown per row; last row is the final amount to pay.
+- Table columns: Bill Date, Bill Number, Overdue Days, Bill Amount (`CREDIT`), Payment To
+  Pay (running). Summary cards show YR_BAL, debit total, final.
+
+> Implementation notes: only ledger rows with a non-zero bill amount (DEBIT for debtors,
+> CREDIT for creditors) are listed as rows, but the credit/debit *totals* sum across **all**
+> rows per the spec. Ledger rows arrive already sorted by `DATE` ascending from the API, so
+> the running totals accumulate in date order. Amounts formatted with `en-IN` 2-decimals.
+
 ### Admin manage clients
 `/manage` (admin-only via middleware) → `GET /api/manage` lists clients; `POST` adds a
 client (role forced to `client`); `DELETE` removes a client and cascades delete of their
@@ -235,3 +273,11 @@ Record every meaningful change here: date, what changed, why, and any follow-ups
   the existing search match AND the `MAIN_CODE` match (case-insensitive). Frontend-only
   change — `MAIN_CODE` was already stored in the `mas` schema and returned by `GET /api/`.
   The filter and the search bar work together (both must match).
+- **2026-06-29** — Ledger screen (`app/company/[code]/page.tsx`): added **Debtors
+  Outstanding** and **Creditors Outstanding** views alongside the existing Ledger view,
+  via a mobile-friendly segmented tab switcher. Added a **Due days** input that drives an
+  **Overdue Days** column; overdue (positive) rows are red-flagged. Each view has summary
+  cards (YR_BAL, total received/paid, final figure) and a billwise running table, and the
+  **Download PDF** button now exports whichever view is active. Backend: `GET /api/`
+  (master route) gained optional `?code=` filtering so the page can read `YR_BAL` for one
+  company. All outstanding math is client-side. See §6.6 for the exact formulas.
