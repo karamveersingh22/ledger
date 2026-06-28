@@ -15,6 +15,7 @@ function Page() {
   const [data, setdata] = useState([]);
   const [fileContent, setFileContent] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string>("ALL");
   const [username, setUsername] = useState<string | null>(null);
   const [masterPath, setMasterPath] = useState<string>("");
   const [ledgerPath, setLedgerPath] = useState<string>("");
@@ -62,14 +63,29 @@ function Page() {
     reader.readAsText(file);
   };
 
+  // Filter definitions based on the MAIN_CODE field from master.json data.
+  const mainCodeFilters = [
+    { label: "All", value: "ALL" },
+    { label: "Customers", value: "SDR" },
+    { label: "Suppliers", value: "SCR" },
+    { label: "Expenses", value: "EXPS" },
+    { label: "Purchases", value: "TRDP" },
+    { label: "Sales", value: "TRDS" },
+  ];
+
   const filteredData = data.filter((item: any) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       item.CODE?.toString().toLowerCase().includes(query) ||
       item.ACCOUNT_N?.toLowerCase().includes(query) ||
       item.CITY?.toLowerCase().includes(query) ||
-      item.AMOUNT?.toString().toLowerCase().includes(query)
-    );
+      item.AMOUNT?.toString().toLowerCase().includes(query);
+
+    const matchesFilter =
+      activeFilter === "ALL" ||
+      (item.MAIN_CODE?.toString().toUpperCase() === activeFilter);
+
+    return matchesSearch && matchesFilter;
   });
 
   // const fetchdata = async () => {
@@ -232,6 +248,26 @@ function Page() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-3 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/15"
                 />
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-xs font-medium text-white/70">Filter by category</label>
+                <div className="flex flex-wrap gap-2">
+                  {mainCodeFilters.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setActiveFilter(f.value)}
+                      className={`inline-flex h-9 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                        activeFilter === f.value
+                          ? "border-transparent bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20"
+                          : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
