@@ -5,7 +5,7 @@
 > running changelog of every change we make. **Update the "Changelog / Work Log"
 > section at the bottom whenever a meaningful change is made.**
 
-Last updated: 2026-06-28
+Last updated: 2026-07-12
 
 ---
 
@@ -32,8 +32,10 @@ Sample data files committed in the repo: [`mas.json`](mas.json) (master sample) 
    4 fields per row: `CODE`, `ACCOUNT_N` (account/company name), `AMOUNT`, `CITY`.
    Clicking a row opens that company's ledger.
 2. **Ledger screen** (`/company/[code]`) — the account statement for one company. Has a
-   3-way **view switcher** (segmented tabs, mobile-scrollable): **Ledger**, **Debtors
-   Outstanding**, **Creditors Outstanding**. Each view has a **Download PDF** button.
+   category-aware **view switcher** (segmented tabs, mobile-scrollable): **Ledger** is
+   always available; **Debtors Outstanding** is available only for `MAIN_CODE = SDR`, and
+   **Creditors Outstanding** only for `MAIN_CODE = SCR`. Each available view has a
+   **Download PDF** button.
    - *Ledger* view shows 6 columns: `DATE`, `BOOK`, `DESCRIBE` ("Particulars"), `DEBIT`,
      `CREDIT`, `BALANCE`.
    - *Debtors / Creditors Outstanding* show summary cards + a billwise running table with
@@ -187,21 +189,47 @@ A shared **Due days** input drives the overdue calculation:
 past due and the whole row is **red-flagged**. Negative ⇒ still within the allowed window.
 Dates use local-midnight to avoid timezone drift.
 
+**Ordinary Ledger view:**
+- The application does **not** calculate `DEBIT`, `CREDIT`, or `BALANCE` for this table.
+  Each value is displayed directly from the corresponding uploaded ledger record.
+- Therefore, there is currently no application-side formula such as
+  `previous balance + debit − credit` for the ordinary Ledger view; the source data is
+  responsible for supplying its already-calculated `BALANCE` value.
+
 **Debtors Outstanding** (money to collect from this company):
+- Available and calculated only when the master record has `MAIN_CODE = SDR`.
 - `creditTotal = Σ CREDIT` over all ledger rows.
 - `payment_to_collect` starts at `YR_BAL − creditTotal` (the initial figure).
 - For each **bill = ledger row with a non-zero `DEBIT`**, add `DEBIT` to the running
   `payment_to_collect`; that running value is shown per row. The last row's value is the
-  final amount to collect. Positive final ⇒ amount to collect; negative ⇒ advance in hand.
+  final amount to collect. Running and final values display the absolute amount prefixed
+  with **DR** when positive (payment to collect) or **CR** when negative (payment collected
+  / advance in hand). Zero is shown without a DR/CR prefix.
+- Explicit formulas, with qualifying debit-bill rows ordered by ledger date:
+  - `initialPaymentToCollect = YR_BAL − Σ(all ledger CREDIT values)`
+  - `paymentToCollect(row n) = initialPaymentToCollect + Σ(DEBIT of bill rows 1..n)`
+  - `finalPaymentToCollect = YR_BAL − Σ(all CREDIT) + Σ(non-zero DEBIT bill rows)`
+  - Displayed amount = `abs(paymentToCollect)`; marker = `DR` when the signed result is
+    positive, `CR` when negative, and no marker when zero.
 - Table columns: Bill Date (`DATE`), Bill Number (`BILL`), Overdue Days, Bill Amount
   (`DEBIT`), Payment To Collect (running). Summary cards show YR_BAL, credit total, final.
 
 **Creditors Outstanding** (money we owe / to pay this company):
+- Available and calculated only when the master record has `MAIN_CODE = SCR`.
 - `debitTotal = Σ DEBIT` over all ledger rows.
 - `payment_to_pay` starts at 0; `-= YR_BAL` if `YR_BAL > 0`, `+= abs(YR_BAL)` if
   `YR_BAL < 0` (net: `payment_to_pay = −YR_BAL`), then `-= debitTotal` (the initial figure).
 - For each **bill = ledger row with a non-zero `CREDIT`**, add `CREDIT` to the running
-  `payment_to_pay`; shown per row; last row is the final amount to pay.
+  `payment_to_pay`; shown per row; last row is the final amount to pay. Running and final
+  values display the absolute amount prefixed with **CR** when positive (payment to pay)
+  or **DR** when negative (payment paid / advance paid). Zero is shown without a DR/CR
+  prefix.
+- Explicit formulas, with qualifying credit-bill rows ordered by ledger date:
+  - `initialPaymentToPay = −YR_BAL − Σ(all ledger DEBIT values)`
+  - `paymentToPay(row n) = initialPaymentToPay + Σ(CREDIT of bill rows 1..n)`
+  - `finalPaymentToPay = −YR_BAL − Σ(all DEBIT) + Σ(non-zero CREDIT bill rows)`
+  - Displayed amount = `abs(paymentToPay)`; marker = `CR` when the signed result is
+    positive, `DR` when negative, and no marker when zero.
 - Table columns: Bill Date, Bill Number, Overdue Days, Bill Amount (`CREDIT`), Payment To
   Pay (running). Summary cards show YR_BAL, debit total, final.
 
@@ -281,3 +309,12 @@ Record every meaningful change here: date, what changed, why, and any follow-ups
   **Download PDF** button now exports whichever view is active. Backend: `GET /api/`
   (master route) gained optional `?code=` filtering so the page can read `YR_BAL` for one
   company. All outstanding math is client-side. See §6.6 for the exact formulas.
+- **2026-07-12** — Restricted outstanding views by master category: Debtors Outstanding
+  is available only for `MAIN_CODE = SDR`, Creditors Outstanding only for `MAIN_CODE =
+  SCR`, and other masters show only Ledger. Replaced signed Payment To Collect and Payment
+  To Pay displays with absolute amounts prefixed by the applicable DR/CR marker in running
+  rows, final summary cards, and outstanding PDFs. Zero balances remain unsigned.
+- **2026-07-12** — Expanded §6.6 with the complete initial, per-row, and final formulas
+  for both outstanding calculations, plus the DR/CR display conversion. Clarified that
+  the ordinary Ledger view displays uploaded `DEBIT`, `CREDIT`, and `BALANCE` values and
+  does not recalculate the ledger balance in the application.

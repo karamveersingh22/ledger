@@ -21,6 +21,7 @@ interface MasterRec {
   CODE?: number;
   ACCOUNT_N?: string;
   YR_BAL?: number;
+  MAIN_CODE?: string;
 }
 
 type ViewKey = 'ledger' | 'debtors' | 'creditors';
@@ -31,6 +32,13 @@ const fmtAmount = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+const fmtSignedAmount = (n: number, positiveMark: 'DR' | 'CR') => {
+  const value = Number(n) || 0
+  if (value === 0) return fmtAmount(0)
+  const mark = value > 0 ? positiveMark : positiveMark === 'DR' ? 'CR' : 'DR'
+  return `${mark} ${fmtAmount(Math.abs(value))}`
+}
 
 const formatDate = (dateString: string) => {
   const d = new Date(dateString as any)
@@ -60,6 +68,7 @@ function Page() {
   const [master, setMaster] = useState<MasterRec | null>(null);
   const [view, setView] = useState<ViewKey>('ledger');
   const [dueDays, setDueDays] = useState<number>(0);
+  const mainCode = master?.MAIN_CODE?.trim().toUpperCase() ?? '';
 
   const getLgrdata = async () => {
     try {
@@ -107,6 +116,7 @@ function Page() {
   // payment_to_collect starts at (YR_BAL - sum of all CREDIT), then each bill
   // (DEBIT amount) is added cumulatively to give the running payment to collect.
   const debtors = useMemo(() => {
+    if (mainCode !== 'SDR') return { yrBal: 0, creditTotal: 0, initial: 0, rows: [], final: 0 }
     const yrBal = Number(master?.YR_BAL ?? 0)
     const creditTotal = lgrdata.reduce((s, r) => s + (Number(r.CREDIT) || 0), 0)
     let running = yrBal - creditTotal
@@ -127,13 +137,14 @@ function Page() {
         }
       })
     return { yrBal, creditTotal, initial, rows, final: running }
-  }, [lgrdata, master, dueDays])
+  }, [lgrdata, master, dueDays, mainCode])
 
   // ---- Creditors Outstanding ----------------------------------------------
   // payment_to_pay starts at 0; subtract YR_BAL if positive, add abs(YR_BAL)
   // if negative (i.e. payment_to_pay = -YR_BAL), then subtract sum of all DEBIT.
   // Each bill (CREDIT amount) is then added cumulatively.
   const creditors = useMemo(() => {
+    if (mainCode !== 'SCR') return { yrBal: 0, debitTotal: 0, initial: 0, rows: [], final: 0 }
     const yrBal = Number(master?.YR_BAL ?? 0)
     const debitTotal = lgrdata.reduce((s, r) => s + (Number(r.DEBIT) || 0), 0)
     let running = 0
@@ -157,7 +168,7 @@ function Page() {
         }
       })
     return { yrBal, debitTotal, initial, rows, final: running }
-  }, [lgrdata, master, dueDays])
+  }, [lgrdata, master, dueDays, mainCode])
 
   const downloadPdf = () => {
     try {
@@ -184,7 +195,7 @@ function Page() {
         doc.setFontSize(10)
         doc.text(`Year Opening Balance (YR_BAL): ${fmtAmount(debtors.yrBal)}`, 40, 58)
         doc.text(`Total Received (Credit Total): ${fmtAmount(debtors.creditTotal)}`, 40, 72)
-        doc.text(`Due Days: ${dueDays}    Final Payment To Collect: ${fmtAmount(debtors.final)}`, 40, 86)
+        doc.text(`Due Days: ${dueDays}    Final Payment To Collect: ${fmtSignedAmount(debtors.final, 'DR')}`, 40, 86)
         // @ts-ignore
         autoTable(doc, {
           startY: 100,
@@ -194,7 +205,7 @@ function Page() {
             r.bill,
             r.overdue === null ? '' : r.overdue,
             fmtAmount(r.billAmt),
-            fmtAmount(r.paymentToCollect),
+            fmtSignedAmount(r.paymentToCollect, 'DR'),
           ]) as any,
           styles: { fontSize: 9 },
           headStyles: { fillColor: [33, 33, 33], textColor: 255 },
@@ -209,7 +220,7 @@ function Page() {
       doc.setFontSize(10)
       doc.text(`Year Opening Balance (YR_BAL): ${fmtAmount(creditors.yrBal)}`, 40, 58)
       doc.text(`Total Paid (Debit Total): ${fmtAmount(creditors.debitTotal)}`, 40, 72)
-      doc.text(`Due Days: ${dueDays}    Final Payment To Pay: ${fmtAmount(creditors.final)}`, 40, 86)
+      doc.text(`Due Days: ${dueDays}    Final Payment To Pay: ${fmtSignedAmount(creditors.final, 'CR')}`, 40, 86)
       // @ts-ignore
       autoTable(doc, {
         startY: 100,
@@ -219,7 +230,7 @@ function Page() {
           r.bill,
           r.overdue === null ? '' : r.overdue,
           fmtAmount(r.billAmt),
-          fmtAmount(r.paymentToPay),
+          fmtSignedAmount(r.paymentToPay, 'CR'),
         ]) as any,
         styles: { fontSize: 9 },
         headStyles: { fillColor: [33, 33, 33], textColor: 255 },
@@ -233,9 +244,13 @@ function Page() {
 
   const tabs: { key: ViewKey; label: string }[] = [
     { key: 'ledger', label: 'Ledger' },
-    { key: 'debtors', label: 'Debtors Outstanding' },
-    { key: 'creditors', label: 'Creditors Outstanding' },
+    ...(mainCode === 'SDR' ? [{ key: 'debtors' as const, label: 'Debtors Outstanding' }] : []),
+    ...(mainCode === 'SCR' ? [{ key: 'creditors' as const, label: 'Creditors Outstanding' }] : []),
   ]
+
+  useEffect(() => {
+    if (!tabs.some(tab => tab.key === view)) setView('ledger')
+  }, [mainCode, view])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -349,7 +364,7 @@ function Page() {
             <div className="mb-4 grid gap-3 sm:grid-cols-3">
               <SummaryCard label="Year Opening Balance (YR_BAL)" value={fmtAmount(debtors.yrBal)} hint={debtors.yrBal < 0 ? 'Excess received before year start' : 'To be collected at year start'} />
               <SummaryCard label="Total Received So Far (Credit Total)" value={fmtAmount(debtors.creditTotal)} />
-              <SummaryCard label="Final Payment To Collect" value={fmtAmount(debtors.final)} accent={debtors.final > 0 ? 'amber' : 'emerald'} hint={debtors.final > 0 ? 'Amount to collect' : 'Advance in hand'} />
+              <SummaryCard label="Final Payment To Collect" value={fmtSignedAmount(debtors.final, 'DR')} accent={debtors.final > 0 ? 'amber' : 'emerald'} hint={debtors.final > 0 ? 'DR: payment to collect' : debtors.final < 0 ? 'CR: payment collected / advance in hand' : 'Settled'} />
             </div>
 
             {debtors.rows.length > 0 ? (
@@ -374,7 +389,7 @@ function Page() {
                             <td className="whitespace-nowrap px-4 py-3">{r.bill || '-'}</td>
                             <td className={`whitespace-nowrap px-4 py-3 font-semibold tabular-nums ${overdue ? 'text-red-200' : 'text-white/70'}`}>{r.overdue === null ? '-' : r.overdue}</td>
                             <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{fmtAmount(r.billAmt)}</td>
-                            <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{fmtAmount(r.paymentToCollect)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{fmtSignedAmount(r.paymentToCollect, 'DR')}</td>
                           </tr>
                         )
                       })}
@@ -395,7 +410,7 @@ function Page() {
             <div className="mb-4 grid gap-3 sm:grid-cols-3">
               <SummaryCard label="Year Opening Balance (YR_BAL)" value={fmtAmount(creditors.yrBal)} hint={creditors.yrBal < 0 ? 'Amount to pay at year start' : 'Paid extra before year start'} />
               <SummaryCard label="Total Paid So Far (Debit Total)" value={fmtAmount(creditors.debitTotal)} />
-              <SummaryCard label="Final Payment To Pay" value={fmtAmount(creditors.final)} accent={creditors.final > 0 ? 'amber' : 'emerald'} hint={creditors.final > 0 ? 'Amount to pay' : 'Advance paid'} />
+              <SummaryCard label="Final Payment To Pay" value={fmtSignedAmount(creditors.final, 'CR')} accent={creditors.final > 0 ? 'amber' : 'emerald'} hint={creditors.final > 0 ? 'CR: payment to pay' : creditors.final < 0 ? 'DR: payment paid / advance paid' : 'Settled'} />
             </div>
 
             {creditors.rows.length > 0 ? (
@@ -420,7 +435,7 @@ function Page() {
                             <td className="whitespace-nowrap px-4 py-3">{r.bill || '-'}</td>
                             <td className={`whitespace-nowrap px-4 py-3 font-semibold tabular-nums ${overdue ? 'text-red-200' : 'text-white/70'}`}>{r.overdue === null ? '-' : r.overdue}</td>
                             <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{fmtAmount(r.billAmt)}</td>
-                            <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{fmtAmount(r.paymentToPay)}</td>
+                            <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{fmtSignedAmount(r.paymentToPay, 'CR')}</td>
                           </tr>
                         )
                       })}
