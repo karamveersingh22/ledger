@@ -318,3 +318,7 @@ Record every meaningful change here: date, what changed, why, and any follow-ups
   for both outstanding calculations, plus the DR/CR display conversion. Clarified that
   the ordinary Ledger view displays uploaded `DEBIT`, `CREDIT`, and `BALANCE` values and
   does not recalculate the ledger balance in the application.
+- **2026-07-31** — Replaced the default Create Next App README with a project-focused
+  GitHub README covering the product overview, major features, application flow, stack,
+  data model, local setup, JSON import examples, project structure, security notes, and
+  roadmap. Seeded credentials were intentionally excluded from the public-facing guide.
