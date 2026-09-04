@@ -20,48 +20,127 @@ function Page() {
   const [masterPath, setMasterPath] = useState<string>("");
   const [ledgerPath, setLedgerPath] = useState<string>("");
 
-  const handleMasFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Reads a File as text without loading it twice (FileReader wrapped in a promise).
+  const readFileAsText = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read the file."));
+      reader.readAsText(file);
+    });
+
+  /**
+   * gzip the payload in the browser before uploading.
+   *
+   * Vercel caps a serverless function request body at ~4.5 MB, and a real ledger
+   * export is far larger (a 34k-row export is ~11 MB of JSON). gzip shrinks that
+   * to well under 1 MB because the same field names repeat on every record.
+   * Note: minifying the source file does NOT help — JSON.parse discards the
+   * file's whitespace, so the serialized body is the same size either way.
+   *
+   * Falls back to sending plain JSON if the browser has no CompressionStream;
+   * the API accepts both.
+   */
+  const buildUploadBody = async (json: unknown) => {
+    const serialized = JSON.stringify(json);
+
+    if (typeof CompressionStream === "undefined") {
+      return {
+        body: new Blob([serialized], { type: "application/json" }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
+    const compressed = await new Response(
+      new Blob([serialized]).stream().pipeThrough(new CompressionStream("gzip"))
+    ).blob();
+
+    return {
+      body: compressed,
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "x-payload-encoding": "gzip",
+      },
+    };
+  };
+
+  // Turns an upload failure into a message that describes what actually went
+  // wrong. Previously every failure — including network and size errors — was
+  // reported as "Invalid JSON file", which pointed at the wrong thing.
+  const describeUploadError = (err: any) => {
+    if (axios.isAxiosError(err)) {
+      if (err.response) {
+        const serverMessage = (err.response.data as any)?.message;
+        if (err.response.status === 413) {
+          return "Upload rejected: the file is too large for the server to accept.";
+        }
+        return serverMessage
+          ? `Upload failed: ${serverMessage}`
+          : `Upload failed with status ${err.response.status}.`;
+      }
+      return "Upload failed: could not reach the server. Check your connection and try again.";
+    }
+    return `Upload failed: ${err?.message ?? "unknown error"}`;
+  };
+
+  /**
+   * Shared upload flow for both master and ledger files.
+   *
+   * Order matters: the file is read, parsed and validated in the browser first,
+   * and the server validates again before it deletes anything. If the JSON is
+   * bad the upload is refused and the previously uploaded data stays in place.
+   */
+  const uploadJsonFile = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    endpoint: string,
+    label: string
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        setFileContent(json);
+    // Step 1 — read and parse. A failure here is genuinely a bad file.
+    let json: any;
+    try {
+      const text = await readFileAsText(file);
+      json = JSON.parse(text);
+    } catch (err) {
+      console.error(`${label}: invalid JSON file:`, err);
+      alert("Invalid JSON file. Please upload a valid JSON. Your existing data was not changed.");
+      return;
+    }
 
-        // Send JSON to backend
-        const response = await axios.post("/api/", json);
-        alert("MAS data uploaded successfully");
-        console.log("Uploaded successfully:", response.data);
-      } catch (err) {
-        console.error("Invalid JSON file:", err);
-        alert("Invalid JSON file. Please upload a valid JSON.");
-      }
-    };
-    reader.readAsText(file);
+    // Step 2 — basic shape check before spending time compressing/uploading.
+    const records = Array.isArray(json) ? json : [json];
+    if (
+      records.length === 0 ||
+      records.some((r) => r === null || typeof r !== "object" || Array.isArray(r))
+    ) {
+      alert(
+        `The ${label} file must contain a list of records. Your existing data was not changed.`
+      );
+      return;
+    }
+
+    setFileContent(json);
+
+    // Step 3 — compress and upload. Failures here are transport/server errors,
+    // not JSON errors, and are reported as such.
+    try {
+      const { body, headers } = await buildUploadBody(json);
+      const response = await axios.post(endpoint, body, { headers });
+      console.log(`${label} uploaded successfully:`, response.data);
+      alert(`${label} data uploaded successfully (${records.length} records)`);
+    } catch (err) {
+      console.error(`${label} upload error:`, err);
+      alert(describeUploadError(err));
+    }
   };
-  const handleLgrFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        setFileContent(json);
+  const handleMasFileChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    uploadJsonFile(e, "/api/", "MAS");
 
-        // Send JSON to backend
-        const response = await axios.post("/api/company", json);
-        console.log("Uploaded successfully:", response.data);
-        alert("LGR data uploaded successfully");
-      } catch (err) {
-        console.error("Invalid JSON file:", err);
-        alert("Invalid JSON file. Please upload a valid JSON.")
-      }
-    };
-    reader.readAsText(file);
-  };
+  const handleLgrFileChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    uploadJsonFile(e, "/api/company", "LGR");
 
   // Filter definitions based on the MAIN_CODE field from master.json data.
   const mainCodeFilters = [

@@ -5,7 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { User } from "@/models/user_schema"; // Needed to resolve user _id from username in token
+import { readUploadPayload, UploadPayloadError } from "@/lib/uploadPayload";
 connectdb()
+
+// Ledger uploads are the big ones (tens of thousands of rows). gunzip + parse is
+// fast (~100ms) but insertMany of that many docs can outlast the short default
+// function timeout, so ask for the full 60s.
+export const maxDuration = 60;
+export const runtime = "nodejs";
 
 // previous code
 // export const POST = async (request: NextRequest)=>{
@@ -62,27 +69,28 @@ export const POST = async (request: NextRequest) => {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    // Delete previous lgr rows for this user before inserting fresh upload
-    await lgr.deleteMany({ user: userDoc._id });
-
-    const data = await request.json();
+    // Read + validate the new upload BEFORE touching existing data, so a bad or
+    // truncated file leaves the previous ledger untouched.
+    const records = await readUploadPayload(request);
 
     const userId = userDoc._id;
-    const enrichedData = Array.isArray(data)
-      ? data.map((d) => ({ ...d, user: userId }))
-      : { ...data, user: userId };
+    const enrichedData = records.map((d) => ({ ...d, user: userId }));
 
-    if (Array.isArray(enrichedData)) {
-      await lgr.insertMany(enrichedData);
-    } else {
-      await lgr.create(enrichedData);
-    }
-    console.log("lgr data inserted in db by the backend");
+    // Only now that the upload is known-good: replace this user's ledger rows.
+    await lgr.deleteMany({ user: userId });
+    await lgr.insertMany(enrichedData);
+
+    console.log(`lgr data inserted in db by the backend (${enrichedData.length} records)`);
     return NextResponse.json(
-      { message: "lgr Data inserted successfully" },
+      { message: "lgr Data inserted successfully", count: enrichedData.length },
       { status: 200 }
     );
   } catch (error: any) {
+    if (error instanceof UploadPayloadError) {
+      // Nothing was deleted — the previous ledger data is still intact.
+      console.log("lgr upload rejected:", error.message);
+      return NextResponse.json({ message: error.message }, { status: error.status });
+    }
     console.log("lgr upload error from the backend", error);
     return NextResponse.json({ message: "lgr upload error in backend" }, { status: 500 });
   }

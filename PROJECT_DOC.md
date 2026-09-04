@@ -5,7 +5,7 @@
 > running changelog of every change we make. **Update the "Changelog / Work Log"
 > section at the bottom whenever a meaningful change is made.**
 
-Last updated: 2026-07-12
+Last updated: 2026-09-04
 
 ---
 
@@ -85,6 +85,9 @@ app/
     auth/register.ts       Legacy/unused auth helper file.
 dbconfig/db.ts             connectdb(): mongoose.connect(process.env.MONGODB_URL).
 lib/auth.ts                verifyToken/createToken/etc (jsonwebtoken). Node runtime only.
+lib/uploadPayload.ts       readUploadPayload(): gunzips (if x-payload-encoding: gzip),
+                           parses and validates an upload body before any DB write.
+                           Throws UploadPayloadError (carries an HTTP status). See §6.7.
 lib/seedUsers.ts           Seeds users.json into Mongo if User collection is empty.
 models/user_schema.ts      User model: username, password, role, masterPath, ledgerPath.
 models/mas_schema.ts       mas model: all master fields + `user` (string username).
@@ -155,15 +158,42 @@ BOOK, INV_DATE, QUANTITY, CASH_MEMO, LEDG_CHECK, MAIN_KEY, K1).
 
 ## 6. Key request flows
 
-### Upload master
-`page.tsx handleMasFileChange` → reads file → `POST /api/` with JSON body →
-route deletes existing `mas` docs for this user (`deleteMany({ user: username })`) →
-inserts new docs enriched with `user: username`.
+### Upload master / Upload ledger (gzip; validate-before-delete)
 
-### Upload ledger
-`page.tsx handleLgrFileChange` → `POST /api/company` → resolves `User._id` from the
-token's username → deletes existing `lgr` docs for that `_id` → inserts new docs enriched
-with `user: _id`.
+Both uploads share one client-side flow, `uploadJsonFile(e, endpoint, label)` in
+`app/page.tsx`. `handleMasFileChange` calls it with `/api/`, `handleLgrFileChange` with
+`/api/company`. See §6.7 for the compression details and the size limits that drove it.
+
+Client steps:
+1. Read the file with `FileReader` and `JSON.parse` it. A failure here is a genuinely bad
+   file → alert "Invalid JSON file", **nothing is uploaded and nothing is deleted**.
+2. Shape check: must be a non-empty array of objects (a single object is accepted and
+   treated as one record). Failure → alert, no upload.
+3. gzip the serialized JSON with the browser's native `CompressionStream("gzip")` and POST
+   it as `application/octet-stream` with the header `x-payload-encoding: gzip`. Browsers
+   without `CompressionStream` fall back to posting plain JSON; the API accepts both.
+4. Errors are classified by `describeUploadError` — 413 / other HTTP status / network
+   failure / server message are reported distinctly instead of all being reported as
+   "Invalid JSON file" (see §10 changelog for why this mattered).
+
+Server steps (`app/api/route.ts` for master, `app/api/company/route.ts` for ledger) —
+**the order is deliberate**:
+1. Verify the JWT cookie. Ledger route also resolves `User._id` from the username.
+2. `readUploadPayload(request)` (`lib/uploadPayload.ts`): gunzip if the
+   `x-payload-encoding: gzip` header is present, `JSON.parse`, then validate non-empty
+   array of objects. Any failure throws `UploadPayloadError` → the route replies 4xx and
+   returns **without deleting anything**.
+3. Only after validation passes: `deleteMany` the user's existing docs, then `insertMany`
+   the new ones enriched with the owner field (`user: username` for `mas`,
+   `user: _id` for `lgr`).
+4. Response includes `count` (records inserted).
+
+> Uploading a new file still fully replaces the previous data — that is the intended
+> behaviour. The change is only that the delete now happens **after** the new file has been
+> proven readable, so a corrupt or truncated upload can no longer wipe a client's data.
+
+Both upload routes declare `export const maxDuration = 60` and `export const runtime =
+"nodejs"` (the latter because `lib/uploadPayload.ts` uses Node's `zlib`).
 
 ### View master table
 `page.tsx getMasdata` → `GET /api/` → returns `mas.find({ user: username })`. Client-side
@@ -238,6 +268,53 @@ Dates use local-midnight to avoid timezone drift.
 > rows per the spec. Ledger rows arrive already sorted by `DATE` ascending from the API, so
 > the running totals accumulate in date order. Amounts formatted with `en-IN` 2-decimals.
 
+### 6.7 Upload size limits & gzip compression
+
+**The constraint.** On Vercel, a serverless function request body is capped at **~4.5 MB**.
+The cap is enforced by the platform *before* the route handler runs, so an oversized upload
+returns `413` and the function never executes. A real-world ledger export is much larger
+than that, so uploads have to be compressed.
+
+**Measured on a real 34,114-row ledger export:**
+
+| | Size |
+|---|---|
+| Source file on disk | 13.85 MB |
+| Same file whitespace-minified | 11.91 MB |
+| Serialized POST body (either file) | **11.05 MB** |
+| POST body after gzip | **0.86 MB** (~13× smaller) |
+| Server-side gunzip + `JSON.parse` | ~70–110 ms |
+
+Why it compresses so well: 34k records repeat the same ~19 key names (≈650k repetitions of
+those strings) plus many repeated values (`0`, `""`, `false`, `null`, the same `BOOK` codes
+and account names).
+
+> ⚠️ **Minifying the source file does nothing.** `JSON.parse` discards the file's whitespace
+> before the upload is serialized, so a pretty-printed file and a minified file produce a
+> byte-identical request body. Only compressing the *request body* helps.
+
+**How it is wired.** Browsers do not gzip request bodies automatically, and Next.js/Vercel
+does not automatically decompress incoming ones — both sides are explicit:
+- Client: `buildUploadBody()` in `app/page.tsx` uses the native `CompressionStream("gzip")`
+  and sets `x-payload-encoding: gzip`. A custom header is used rather than `Content-Encoding`
+  to avoid any proxy attempting its own decoding.
+- Server: `readUploadPayload()` in `lib/uploadPayload.ts` gunzips with Node `zlib`, capped at
+  `maxOutputLength` 64 MB as a gzip-bomb guard.
+- Brotli would compress ~23×, but `CompressionStream` supports only gzip/deflate, so it
+  would require shipping a compression library to the browser. gzip already clears the cap
+  with ~5× headroom, so it was not worth it.
+
+**Remaining headroom and the next bottleneck.** At 0.86 MB there is roughly 5× headroom, so
+this comfortably supports growth to ~150,000–180,000 ledger rows before the 4.5 MB cap is
+reached again. Beyond that, the options are chunked uploads or direct-to-storage
+(Vercel Blob / S3).
+
+Compression solves the *size* limit, so the next limit reached is **function execution
+time** — the `insertMany` of tens of thousands of documents, not the decompression (which is
+~100 ms). Both upload routes therefore set `maxDuration = 60`. Other ceilings, none of which
+currently bind: MongoDB `insertMany` batches at 48 MB BSON (a 34k-row ledger is ~11.4 MB),
+and MongoDB's 16 MB per-document limit is irrelevant since each ledger row is its own doc.
+
 ### Admin manage clients
 `/manage` (admin-only via middleware) → `GET /api/manage` lists clients; `POST` adds a
 client (role forced to `client`); `DELETE` removes a client and cascades delete of their
@@ -257,7 +334,7 @@ Set these in Vercel project env settings (and a local `.env` for dev).
 
 ---
 
-## 8. Known issues / tech debt (as of 2026-06-28)
+## 8. Known issues / tech debt (as of 2026-09-04)
 
 1. **Plaintext passwords.** `bcryptjs` is installed but unused. Login compares raw
    strings. Should hash on create and compare on login.
@@ -270,8 +347,22 @@ Set these in Vercel project env settings (and a local `.env` for dev).
    blocks in the API routes, unused deps (Clerk, node-dbf, js-cookie, jwt-decode).
 6. **`masterPath` / `ledgerPath`** are display-only labels; the app does not actually read
    files from those paths (data comes from manual uploads).
-7. **No data validation** on uploaded JSON beyond `JSON.parse`. Malformed records insert
-   with schema defaults.
+7. **Limited data validation** on uploaded JSON. As of 2026-09-04 uploads are checked for
+   valid JSON and for being a non-empty list of objects (client and server, before any
+   delete — §6.7). There is still **no per-field validation**: a record missing `CODE`,
+   `DATE` or `DEBIT`/`CREDIT`, or carrying wrong types, still inserts with schema defaults.
+   Unknown fields (e.g. `USER_NAME`, present in real exports but absent from
+   `models/lgr_schema.ts`) are silently dropped by Mongoose.
+8. **`insertMany` is not transactional and defaults to `ordered: true`.** The delete now only
+   runs after the upload is validated, so a *bad file* is safe. But if the insert itself
+   fails partway (schema error, or the 60s `maxDuration` timeout on a very large ledger),
+   the old data is already deleted and only the records before the failure are written —
+   leaving a ledger that looks populated but is incomplete, with no user-visible warning.
+   Fixing this properly needs a MongoDB transaction around delete+insert, or writing to a
+   temporary collection and swapping. Not done yet.
+9. **No upload progress indication.** A large ledger upload can take several seconds; the UI
+   gives no feedback between file selection and the success/failure `alert()`, and the file
+   input is not disabled during the upload.
 
 ---
 
@@ -318,6 +409,39 @@ Record every meaningful change here: date, what changed, why, and any follow-ups
   for both outstanding calculations, plus the DR/CR display conversion. Clarified that
   the ordinary Ledger view displays uploaded `DEBIT`, `CREDIT`, and `BALANCE` values and
   does not recalculate the ledger balance in the application.
+- **2026-09-04** — **Large-upload support: gzip compression, `maxDuration = 60`, and
+  validate-before-delete.**
+  *Why:* uploading a real 13.85 MB / 34,114-row ledger export always failed with the alert
+  "Invalid JSON file". Investigation showed the file was **valid JSON** — the single
+  `try/catch` in the old handlers wrapped both `JSON.parse` *and* the `axios.post`, so a
+  transport failure was misreported as a file error. The real cause was the serialized
+  11.05 MB request body exceeding Vercel's ~4.5 MB function body cap (413). Re-saving the
+  file minified did not help, because `JSON.parse` discards whitespace before the body is
+  serialized — both files produced a byte-identical 11.05 MB body.
+  *Changes:*
+  - **New `lib/uploadPayload.ts`** — `readUploadPayload()` gunzips the body when
+    `x-payload-encoding: gzip` is set (64 MB `maxOutputLength` gzip-bomb guard), parses it,
+    and validates it is a non-empty array of objects. Throws `UploadPayloadError` carrying
+    an HTTP status. Performs **no** database writes.
+  - **`app/page.tsx`** — both handlers now delegate to a shared `uploadJsonFile()`. It
+    parses and shape-checks in the browser, gzips via the native `CompressionStream("gzip")`
+    (falling back to plain JSON where unsupported), posts as `application/octet-stream`, and
+    reports failures through `describeUploadError()` so 413 / HTTP status / network / server
+    messages are distinguished instead of all reading "Invalid JSON file". Success alert now
+    reports the record count.
+  - **`app/api/route.ts` and `app/api/company/route.ts`** — reordered to
+    **validate → delete → insert**. Previously `deleteMany` ran *before* `request.json()`,
+    so a malformed, truncated or interrupted upload wiped the client's existing data with no
+    way to recover it. Replace-on-upload behaviour is unchanged and intentional; only the
+    ordering moved. Both routes now declare `maxDuration = 60` and `runtime = "nodejs"`, and
+    return `count` on success. Validation failures reply 4xx with the reason and leave the
+    previous data untouched.
+  *Result:* the same ledger now uploads as **0.86 MB** (~13× smaller), roughly 5× under the
+  cap, with server-side gunzip + parse at ~70–110 ms. Headroom to ~150k–180k rows. Full
+  details and measurements in **§6.7**.
+  *Follow-ups (see §8 items 7–9):* no per-field validation; `insertMany` is still
+  non-transactional and `ordered: true`, so a failure *during the insert* (including a 60s
+  timeout) can still leave partial data; and there is no upload progress UI.
 - **2026-07-31** — Replaced the default Create Next App README with a project-focused
   GitHub README covering the product overview, major features, application flow, stack,
   data model, local setup, JSON import examples, project structure, security notes, and

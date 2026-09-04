@@ -4,8 +4,14 @@ import fs from "fs/promises";
 import { mas } from "@/models/mas_schema";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { readUploadPayload, UploadPayloadError } from "@/lib/uploadPayload";
 
 connectdb();
+
+// Large master uploads (gunzip + parse + insertMany of thousands of rows) can
+// outlast the short default function timeout, so ask for the full 60s.
+export const maxDuration = 60;
+export const runtime = "nodejs";
 
 // code for reading json file from the file provided locally.
 // export const POST = async (request : NextRequest)=>{
@@ -30,26 +36,33 @@ export const POST = async (request: NextRequest) => {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
     const userData = result.decoded;
-    // Use username for user association
-    await mas.deleteMany({ user: userData.username }); // delete previous data of this user
-    const data = await request.json();
-    // ✅ Insert fresh data
-    const enrichedData = Array.isArray(data)
-      ? data.map((d) => ({ ...d, user: userData.username }))
-      : { ...data, user: userData.username };
-    if (Array.isArray(enrichedData)) {
-      await mas.insertMany(enrichedData);
-    } else {
-      await mas.create(enrichedData);
-    }
-    console.log("mas data inserted in db by the backend ");
+
+    // Read + validate the new upload BEFORE touching existing data, so a bad or
+    // truncated file leaves the previous master untouched.
+    const records = await readUploadPayload(request);
+
+    const enrichedData = records.map((d) => ({ ...d, user: userData.username }));
+
+    // Only now that the upload is known-good: replace this user's master data.
+    await mas.deleteMany({ user: userData.username });
+    await mas.insertMany(enrichedData);
+
+    console.log(`mas data inserted in db by the backend (${enrichedData.length} records)`);
     return NextResponse.json(
-      { message: "mas Data inserted successfully" },
+      { message: "mas Data inserted successfully", count: enrichedData.length },
       { status: 200 }
     );
   } catch (error: any) {
+    if (error instanceof UploadPayloadError) {
+      // Nothing was deleted — the previous master data is still intact.
+      console.log("mas upload rejected:", error.message);
+      return NextResponse.json({ message: error.message }, { status: error.status });
+    }
     console.log("mas upload error from the backend", error);
-    return NextResponse.json({ message: "mas upload error in backend" });
+    return NextResponse.json(
+      { message: "mas upload error in backend" },
+      { status: 500 }
+    );
   }
 };
 
